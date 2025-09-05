@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Black Kitchen · Control</title>
+  <style>
+    :root{
+      --rose-50:#fff1f7; --rose-100:#ffe4ef; --rose-200:#fecdd6; --rose-300:#fda4b8; --rose-400:#fb7185; --rose-500:#f43f5e; --rose-600:#e11d48;
+      --bg:#fff7fb; --card:#ffffff; --line:#ffd6e6; --muted:#666;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:0; background:linear-gradient(180deg,var(--rose-50),#fff7fb); color:#222}
+    .container{max-width:1100px;margin:20px auto;padding:16px}
+    header{display:flex;align-items:center;gap:12px}
+    .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--rose-400),var(--rose-600));box-shadow:0 8px 24px rgba(225,29,72,.12)}
+    h1{margin:0;font-size:20px}
+    nav{margin-top:14px;display:flex;gap:8px}
+    .tab{padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600}
+    .tab.active{background:linear-gradient(180deg,#ffe6ef,#ffd6e6)}
+    .card{background:var(--card);border-radius:12px;padding:16px;margin-top:16px;border:1px solid var(--line);box-shadow:0 10px 30px rgba(244,63,94,.04)}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,textarea,select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-size:14px}
+    .grid{display:grid;gap:12px}
+    .grid-3{grid-template-columns:repeat(3,1fr)}
+    @media(max-width:900px){.grid-3{grid-template-columns:1fr}}
+    .btn{background:linear-gradient(180deg,var(--rose-400),var(--rose-600));color:#fff;padding:10px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:700}
+    .btn.secondary{background:#fff;border:1px solid var(--line);color:#222}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;text-align:left;border-bottom:1px solid #fff}
+    .hint{font-size:13px;color:var(--muted)}
+    .banner{padding:10px;border-radius:10px;margin-top:12px}
+    .banner.ok{background:#ecfdf5;border:1px solid #c7f3de;color:#065f46}
+    .banner.warn{background:#fff1f2;border:1px solid #ffd6e6;color:#7a0449}
+    pre.debug{background:#fff;border:1px solid var(--line);padding:8px;border-radius:8px;white-space:pre-wrap}
+    #diag-output{margin-top:8px}
+    #tests{margin-top:16px}
+    .test-pass{color:#065f46;font-weight:700}
+    .test-fail{color:#7a0449;font-weight:700}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo" aria-hidden></div>
+      <div>
+        <h1>Black Kitchen · Control</h1>
+        <div class="hint">Catálogo de insumos → Firestore • Ingredientes y Ventas (local demo)</div>
+      </div>
+    </header>
+
+    <nav>
+      <button class="tab active" data-view="home">Inicio</button>
+      <button class="tab" data-view="insumos">Catálogo de insumos</button>
+      <button class="tab" data-view="ingredientes">Ingredientes</button>
+      <button class="tab" data-view="ventas">Ventas</button>
+    </nav>
+
+    <div id="view-home" class="card">
+      <h2 style="margin-top:0">Inicio</h2>
+      <p class="hint">Utiliza el módulo <b>Catálogo de insumos</b> para crear / editar / eliminar insumos en Firestore (colección <code>insumos</code>).</p>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn" data-jump="insumos">Ir a Insumos</button>
+        <button class="btn secondary" data-jump="ingredientes">Ingredientes</button>
+      </div>
+    </div>
+
+    <!-- Insumos -->
+    <div id="view-insumos" class="card" style="display:none">
+      <div id="dbStatus" class="banner" style="display:none"></div>
+      <h2 style="margin-top:0">Catálogo de insumos</h2>
+      <form id="formInsumo" class="grid grid-3">
+        <div>
+          <label for="idProd">Identificador del producto</label>
+          <input id="idProd" required placeholder="INS-0001" />
+        </div>
+        <div>
+          <label for="producto">Producto</label>
+          <input id="producto" required placeholder="Harina 1kg" />
+        </div>
+        <div>
+          <label for="precio">Precio (MXN)</label>
+          <input id="precio" type="number" step="0.01" min="0" required />
+        </div>
+        <div>
+          <label for="lugar">Lugar de compra</label>
+          <input id="lugar" required placeholder="Proveedor" />
+        </div>
+        <div>
+          <label for="fecha">Fecha de compra</label>
+          <input id="fecha" type="date" required />
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <button class="btn" type="submit">Guardar</button>
+          <button class="btn secondary" type="button" id="limpiar">Limpiar</button>
+        </div>
+      </form>
+
+      <div style="margin-top:12px">
+        <label class="hint">Buscar</label>
+        <input id="buscar" placeholder="Buscar por id o producto" />
+      </div>
+
+      <div id="tablaWrap" style="margin-top:12px">
+        <table>
+          <thead><tr><th>ID</th><th>Producto</th><th>Precio</th><th>Lugar</th><th>Fecha</th><th>Acciones</th></tr></thead>
+          <tbody id="tablaInsumos"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button class="btn ghost" id="btnDiag">Diagnosticar Firestore</button>
+        <button class="btn secondary" id="btnCopyAuth">Copiar reglas recomendadas</button>
+        <button class="btn secondary" id="btnCopyOpen">Copiar reglas abiertas (solo pruebas)</button>
+      </div>
+      <div id="diag-output"></div>
+    </div>
+
+    <!-- Ingredientes (local demo) -->
+    <div id="view-ingredientes" class="card" style="display:none">
+      <h2 style="margin-top:0">Ingredientes por platillo (demo local)</h2>
+      <form id="formPlatillo" class="grid">
+        <label for="platNombre">Nombre platillo</label>
+        <input id="platNombre" placeholder="Taco" />
+        <label for="platClave">Clave</label>
+        <input id="platClave" placeholder="PLAT-001" />
+        <label for="platIngs">Ingredientes (una por línea: ID|cantidad|unidad)</label>
+        <textarea id="platIngs" rows="6" placeholder="INS-0001|0.25|kg"></textarea>
+        <div style="display:flex;gap:8px"><button class="btn" id="guardarPlat">Guardar platillo</button><button class="btn secondary" id="limpiarPlat">Limpiar</button></div>
+      </form>
+      <ul id="listaPlatillos" class="hint"></ul>
+    </div>
+
+    <!-- Ventas (local demo) -->
+    <div id="view-ventas" class="card" style="display:none">
+      <h2 style="margin-top:0">Administración de ventas (demo local)</h2>
+      <form id="formVentas" class="grid grid-3">
+        <div><label>Fecha</label><input id="vFecha" type="date" /></div>
+        <div><label>Platillo</label><input id="vPlatillo" /></div>
+        <div><label>Precio</label><input id="vPrecio" type="number" step="0.01" /></div>
+        <div style="grid-column:1/-1;display:flex;gap:8px"><button class="btn" id="regVenta">Registrar</button><button class="btn secondary" id="limpiarVenta">Limpiar</button></div>
+      </form>
+      <div style="margin-top:12px"><table><thead><tr><th>Fecha</th><th>Platillo</th><th>Precio</th></tr></thead><tbody id="tablaVentas"></tbody></table></div>
+      <div style="margin-top:8px" class="hint">Total: <span id="totalV">$0.00</span></div>
+    </div>
+
+    <div id="tests" class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Pruebas (diagnóstico)</h3><button class="btn secondary" id="runTests">Ejecutar pruebas</button></div>
+      <ul id="test-results" class="hint"></ul>
+    </div>
+
+  </div>
+
+  <!-- Firebase + Lógica -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+    import {
+      getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+    // config (proporcionada por el usuario)
+    const firebaseConfig = {
+      apiKey: "AIzaSyA5wQnHKYMeh0JkWAqPx1N_nKT-2EARgyw",
+      authDomain: "cocinademama-7a453.firebaseapp.com",
+      projectId: "cocinademama-7a453",
+      storageBucket: "cocinademama-7a453.firebasestorage.app",
+      messagingSenderId: "55163145721",
+      appId: "1:55163145721:web:3e2054aadd26a7b1708128",
+      measurementId: "G-HWS437XZ9D"
+    };
+
+    // Init Firebase
+    const app = initializeApp(firebaseConfig);
+    try{ getAnalytics(app); }catch(e){ console.warn('Analytics no disponible', e); }
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // State
+    let MODE = 'firestore'; // 'firestore' | 'local'
+    const COL = 'insumos';
+
+    // DOM
+    const tabs = document.querySelectorAll('.tab');
+    const views = { home: document.getElementById('view-home'), insumos: document.getElementById('view-insumos'), ingredientes: document.getElementById('view-ingredientes'), ventas: document.getElementById('view-ventas') };
+    const status = document.getElementById('dbStatus');
+    const tabla = document.getElementById('tablaInsumos');
+    const diagOut = document.getElementById('diag-output');
+
+    // Utils
+    const money = v=> new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(v||0));
+    function toDate(v){ if(!v) return ''; if(typeof v?.toDate === 'function') return v.toDate(); if(typeof v === 'number') return new Date(v); if(typeof v === 'string') return new Date(v); return null; }
+    function fmtDate(v){ const d=toDate(v); return d?d.toLocaleDateString('es-MX'):''; }
+
+    function showBanner(text, type='ok', extra=''){ status.style.display='block'; status.className = 'banner ' + (type==='ok'?'ok':'warn'); status.innerHTML = `<div style="flex:1">${text}</div><div>${extra}</div>`; }
+    function hideBanner(){ status.style.display='none'; status.innerHTML=''; }
+
+    // Sample rules
+    const sampleRulesAuth = `rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /${COL}/{document=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}`;
+    const sampleRulesOpen = `rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}`;
+    async function copyToClipboard(txt){ try{ await navigator.clipboard.writeText(txt); alert('Copiado al portapapeles. Pega en Firebase Console → Firestore → Rules'); }catch(e){ alert('No se pudo copiar automáticamente. Copia manualmente:\n'+txt); } }
+
+    // Local fallback storage
+    const LOCAL_KEY = 'bk_insumos_v2';
+    function getLocal(){ return JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}'); }
+    function saveLocalObj(obj){ localStorage.setItem(LOCAL_KEY, JSON.stringify(obj)); }
+    function saveInsumoLocal(data){ const store = getLocal(); const id = data.idProducto; const now = Date.now(); store[id] = Object.assign({}, data, {createdAt: store[id]?.createdAt || now, updatedAt: now}); saveLocalObj(store); }
+    function deleteLocalInsumo(id){ const store = getLocal(); delete store[id]; saveLocalObj(store); }
+    async function loadInsumosLocal(){ const store = getLocal(); const rows = Object.keys(store).map(k=>({id:k, data: store[k]})); rows.sort((a,b)=> (b.data.updatedAt||0)-(a.data.updatedAt||0)); renderRows(rows); showBanner('Modo LOCAL: usando almacenamiento del navegador.','warn', '<small>Usa copiar reglas si quieres permitir acceso remoto.</small>'); }
+
+    // Error helpers
+    function formatError(err){ if(!err) return '(sin información)'; try{ if(typeof err === 'string') return err; if(err.code || err.message) return `${err.code || ''} ${err.message || ''}`.trim(); return JSON.stringify(err); }catch(e){ return String(err); } }
+    function isPermissionError(msg){ const m=(msg||'').toLowerCase(); return m.includes('permission-denied') || m.includes('missing or insufficient permissions'); }
+
+    function handleFirestoreError(err){ const msg = formatError(err); console.error('Firebase error (handled):', msg); if(isPermissionError(msg)){ MODE='local'; loadInsumosLocal(); showBanner('Permisos denegados en Firestore. Cambiando a MODO LOCAL.','warn', `<pre class="debug">${escapeHtml(msg)}</pre>`); return; } showBanner('Error de Firebase: '+ msg, 'warn', `<pre class="debug">${escapeHtml(msg)}</pre> <button class="btn secondary" id="btnRetry">Reintentar</button>`); setTimeout(()=>{ document.getElementById('btnRetry')?.addEventListener('click', ()=> initFirestore(true)); },50); }
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // Render rows
+    function renderRows(rows){ if(!rows || rows.length===0){ tabla.innerHTML = '<tr><td colspan="6" class="hint">Sin registros</td></tr>'; return; } tabla.innerHTML = rows.map(r=>{ const d=r.data; return `<tr data-id="${r.id}"><td>${d.idProducto||r.id}</td><td>${d.producto||''}</td><td>${money(d.precio)}</td><td>${d.lugarCompra||''}</td><td>${fmtDate(d.fechaCompra||d.createdAt)}</td><td><button data-act="edit">Editar</button> <button data-act="del">Eliminar</button></td></tr>`; }).join(''); }
+
+    // Firestore operations (wrapped with error handling)
+    async function loadInsumosFirestore(){ try{ tabla.innerHTML = '<tr><td colspan="6" class="hint">Cargando…</td></tr>'; const q = query(collection(db, COL), orderBy('createdAt','desc')); const snap = await getDocs(q); const rows = []; snap.forEach(d=> rows.push({id:d.id, data:d.data()})); renderRows(rows); showBanner('Conectado a Firestore','ok','<small>Autenticación: '+(auth.currentUser?.uid||'sin auth')+'</small>'); }catch(err){ handleFirestoreError(err); } }
+
+    async function saveInsumoFirestore(data){ try{ const ref = doc(db, COL, data.idProducto); const payload = Object.assign({}, data, {updatedAt: serverTimestamp(), createdAt: serverTimestamp()}); await setDoc(ref, payload, { merge: true }); return true; }catch(err){ handleFirestoreError(err); return false; } }
+
+    async function deleteInsumoFirestore(id){ try{ await deleteDoc(doc(db, COL, id)); return true; }catch(err){ handleFirestoreError(err); return false; } }
+
+    // Diagnostic - attempt write/read/delete
+    async function runDiagnostic(){ diagOut.innerHTML = ''; try{ const testId = 'DIAG-'+Math.random().toString(36).slice(2,8); const ref = doc(db, COL, testId); await setDoc(ref, {ping:true, ts: serverTimestamp()}); const snap = await getDoc(ref); if(snap.exists()){ diagOut.innerHTML = `<div class="hint">Escritura/lectura OK. Doc: <b>${testId}</b></div>`; try{ await deleteDoc(ref); }catch(e){ console.warn('no se pudo eliminar doc diagnostico', e); } }else{ diagOut.innerHTML = '<div class="hint">Se escribió pero no se pudo leer de vuelta.</div>'; } }catch(err){ const msg=formatError(err); diagOut.innerHTML = `<pre class="debug">Diagnóstico fallido:\n${escapeHtml(msg)}</pre>`; if(isPermissionError(msg)){ handleFirestoreError(err); } } }
+
+    // Attempts to init Firestore (auth optional). If forceLocal param true, set MODE local
+    async function initFirestore(force=false){ if(force){ MODE='local'; loadInsumosLocal(); return; } MODE='firestore'; hideBanner(); try{ await signInAnonymously(auth).catch(e=>{ console.warn('signInAnonymously:', formatError(e)); }); await loadInsumosFirestore(); }catch(err){ handleFirestoreError(err); } }
+
+    // Form events
+    document.getElementById('formInsumo').addEventListener('submit', async (e)=>{ e.preventDefault(); const data = { idProducto: document.getElementById('idProd').value.trim(), producto: document.getElementById('producto').value.trim(), precio: Number(document.getElementById('precio').value||0), lugarCompra: document.getElementById('lugar').value.trim(), fechaCompra: document.getElementById('fecha').value }; if(!data.idProducto){ alert('Falta identificador'); return; } if(MODE==='firestore'){ const ok = await saveInsumoFirestore(data); if(ok){ await loadInsumosFirestore(); document.getElementById('formInsumo').reset(); } else { // fallback to local
+          saveInsumoLocal(data); showBanner('Guardado en LOCAL debido a error en Firestore','warn'); await loadInsumosLocal(); }
+      }else{ saveInsumoLocal(data); await loadInsumosLocal(); document.getElementById('formInsumo').reset(); } });
+
+    document.getElementById('limpiar').addEventListener('click', ()=> document.getElementById('formInsumo').reset());
+
+    // Table actions
+    document.getElementById('tablaInsumos').addEventListener('click', async (e)=>{ const tr = e.target.closest('tr'); if(!tr) return; const id = tr.dataset.id; const act = e.target.dataset.act; if(act==='edit'){ if(MODE==='firestore'){ try{ const snap = await getDoc(doc(db, COL, id)); if(!snap.exists()){ return alert('Registro no encontrado'); } const d=snap.data(); document.getElementById('idProd').value = d.idProducto||id; document.getElementById('producto').value = d.producto||''; document.getElementById('precio').value = d.precio||''; document.getElementById('lugar').value = d.lugarCompra||''; document.getElementById('fecha').value = d.fechaCompra||''; show('insumos'); }catch(err){ handleFirestoreError(err); } } else { const store=getLocal(); const d=store[id]; if(d){ document.getElementById('idProd').value=d.idProducto||id; document.getElementById('producto').value = d.producto||''; document.getElementById('precio').value = d.precio||''; document.getElementById('lugar').value = d.lugarCompra||''; document.getElementById('fecha').value = d.fechaCompra||''; show('insumos'); } } }
+      if(act==='del'){ if(!confirm('Eliminar?')) return; if(MODE==='firestore'){ const ok = await deleteInsumoFirestore(id); if(ok) await loadInsumosFirestore(); } else { deleteLocalInsumo(id); await loadInsumosLocal(); } } });
+
+    // Search
+    document.getElementById('buscar').addEventListener('input', ()=>{ const q=document.getElementById('buscar').value.toLowerCase(); document.querySelectorAll('#tablaInsumos tr').forEach(tr=> tr.style.display = tr.textContent.toLowerCase().includes(q)?'':'none'); });
+
+    // Diagnostics / rules copy
+    document.getElementById('btnDiag')?.addEventListener('click', ()=> runDiagnostic());
+    document.getElementById('btnCopyAuth')?.addEventListener('click', ()=> copyToClipboard(sampleRulesAuth));
+    document.getElementById('btnCopyOpen')?.addEventListener('click', ()=> copyToClipboard(sampleRulesOpen));
+
+    // Simple SPA navigation
+    function show(view){ Object.values(views).forEach(v=>v.style.display='none'); views[view].style.display='block'; tabs.forEach(t=> t.classList.toggle('active', t.dataset.view===view)); }
+    tabs.forEach(t=> t.addEventListener('click', ()=> show(t.dataset.view)));
+    document.querySelectorAll('[data-jump]').forEach(b=> b.addEventListener('click', ()=> show(b.dataset.jump)));
+
+    // Ingredients local
+    const platillos = JSON.parse(localStorage.getItem('bk_platillos_v2')||'[]');
+    function renderPlatillos(){ const ul=document.getElementById('listaPlatillos'); if(!platillos.length) return ul.innerHTML='<li class="hint">Sin platillos</li>'; ul.innerHTML = platillos.map(p=>`<li><b>${p.clave}</b> ${p.nombre} — ${p.ing.join(', ')}</li>`).join(''); }
+    document.getElementById('guardarPlat').addEventListener('click', (e)=>{ e.preventDefault(); const nombre=document.getElementById('platNombre').value.trim(); const clave=document.getElementById('platClave').value.trim(); const ing=document.getElementById('platIngs').value.trim().split(/\n+/).filter(Boolean); platillos.push({nombre,clave,ing}); localStorage.setItem('bk_platillos_v2', JSON.stringify(platillos)); renderPlatillos(); });
+    document.getElementById('limpiarPlat').addEventListener('click', ()=> document.getElementById('formPlatillo').reset());
+
+    // Sales local
+    const ventas = JSON.parse(localStorage.getItem('bk_ventas_v2')||'[]');
+    function renderVentas(){ document.getElementById('tablaVentas').innerHTML = ventas.map(v=>`<tr><td>${v.fecha}</td><td>${v.plat}</td><td>${money(v.precio)}</td></tr>`).join(''); const total = ventas.reduce((s,x)=>s+Number(x.precio||0),0); document.getElementById('totalV').textContent = money(total); }
+    document.getElementById('regVenta').addEventListener('click', (e)=>{ e.preventDefault(); const v={fecha:document.getElementById('vFecha').value, plat:document.getElementById('vPlatillo').value, precio:document.getElementById('vPrecio').value}; ventas.push(v); localStorage.setItem('bk_ventas_v2', JSON.stringify(ventas)); renderVentas(); document.getElementById('formVentas').reset(); });
+    document.getElementById('limpiarVenta').addEventListener('click', ()=> document.getElementById('formVentas').reset());
+
+    // Tests
+    async function runTests(){ const results=[]; function rec(name,pass,detail=''){ results.push({name,pass,detail}); }
+      try{ rec('formatError(null)', formatError(null)==='(sin información)'); rec('permission detection', isPermissionError('permission-denied')); // local save/load
+        const id='TEST-LOC-1'; saveInsumoLocal({idProducto:id, producto:'Prueba', precio:10, lugarCompra:'X', fechaCompra:'2024-01-01'}); const store=getLocal(); rec('local save exists', !!store[id]); // renderRows empty
+        try{ renderRows([]); rec('renderRows([]) no falla', true); }catch(e){ rec('renderRows([]) no falla', false, e.message); }
+      }catch(e){ console.error(e); }
+      const ul=document.getElementById('test-results'); ul.innerHTML = results.map(r=>`<li class="${r.pass?'test-pass':'test-fail'}">${r.pass? '✔' : '✖'} ${r.name}${r.detail?` <small>(${escapeHtml(r.detail)})</small>`:''}</li>`).join(''); }
+    document.getElementById('runTests').addEventListener('click', runTests);
+
+    // Global safety for unhandled rejections
+    window.addEventListener('unhandledrejection', e=>{ console.error('UnhandledRejection', e.reason); handleFirestoreError(e.reason); e.preventDefault(); });
+    window.addEventListener('error', e=>{ console.error('GlobalError', e.error || e.message); });
+
+    // Initialize
+    (async ()=>{ try{ await initFirestore(); }catch(e){ handleFirestoreError(e); } renderPlatillos(); renderVentas(); })();
+
+  </script>
+</body>
+</html>
